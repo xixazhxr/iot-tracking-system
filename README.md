@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # IoT Project Tracking System
 
 ## Overview
@@ -32,6 +31,3 @@ A full-stack IoT Project Tracking System built with Flask, React, MariaDB, and D
 - Task Management
 - IoT Specific Progress Tracking
 - User Authentication (JWT)
-=======
-# iot-tracking-system
->>>>>>> 2b43a3b77d892f4e27a61a27cfcf7b56e9813321
