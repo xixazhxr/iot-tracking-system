@@ -1,8 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, FolderKanban, CheckSquare, AlertCircle, Users, Settings, LogOut } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 export default function Sidebar() {
     const location = useLocation();
+    const { logout } = useAuth();
 
     const menuItems = [
         { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -32,8 +34,8 @@ export default function Sidebar() {
                             key={item.path}
                             to={item.path}
                             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${isActive
-                                    ? "bg-white text-primary font-semibold shadow-md"
-                                    : "text-white/80 hover:bg-primary-light hover:text-white"
+                                ? "bg-white text-primary font-semibold shadow-md"
+                                : "text-white/80 hover:bg-primary-light hover:text-white"
                                 }`}
                         >
                             <Icon size={20} className={isActive ? "text-primary" : "text-white/80 group-hover:text-white"} />
@@ -44,7 +46,10 @@ export default function Sidebar() {
             </nav>
 
             <div className="p-4 border-t border-primary-dark">
-                <button className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-white/80 hover:bg-primary-light hover:text-white transition-colors">
+                <button
+                    onClick={logout}
+                    className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-white/80 hover:bg-primary-light hover:text-white transition-colors"
+                >
                     <LogOut size={20} />
                     <span>Logout</span>
                 </button>

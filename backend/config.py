@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Config:
     DB_USER = os.environ.get("MYSQL_USER", "root")
@@ -8,4 +11,6 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SECRET_KEY = "supersecretkey"
+    SECRET_KEY = os.environ.get("SECRET_KEY", "supersecretkey")
+    UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", os.path.join(os.getcwd(), 'uploads'))
+

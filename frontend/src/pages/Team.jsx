@@ -1,20 +1,38 @@
 import { useState, useEffect } from "react";
 import api from "../api/axios";
+import { toast } from "react-hot-toast";
 import PageTransition from "../components/PageTransition";
-import { Search, Filter, Mail, Phone, MapPin, Briefcase, User } from "lucide-react";
+import TeamMemberModal from "../components/TeamMemberModal";
+import { Search, Filter, Mail, Phone, MapPin, Briefcase, User, Edit2, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 
 export default function Team() {
     const [members, setMembers] = useState([]);
+    const [pendingMembers, setPendingMembers] = useState([]); // [new]
+    const [editingMember, setEditingMember] = useState(null);
+
+    const fetchUsers = async () => {
+        try {
+            const res = await api.get("/users/");
+            const allUsers = res.data.users;
+            setMembers(allUsers.filter(u => u.is_approved));
+            setPendingMembers(allUsers.filter(u => !u.is_approved));
+        } catch (err) {
+            console.error("Failed to fetch users", err);
+        }
+    };
+
+    const handleApprove = async (id) => {
+        try {
+            await api.put(`/users/${id}`, { is_approved: true });
+            toast.success("User approved successfully");
+            fetchUsers();
+        } catch (err) {
+            console.error("Failed to approve user", err);
+            toast.error("Failed to approve user");
+        }
+    };
 
     useEffect(() => {
-        const fetchUsers = async () => {
-            try {
-                const res = await api.get("/users/");
-                setMembers(res.data.users);
-            } catch (err) {
-                console.error("Failed to fetch users", err);
-            }
-        };
         fetchUsers();
     }, []);
 
@@ -40,6 +58,49 @@ export default function Team() {
                         </button>
                     </div>
                 </div>
+
+                {pendingMembers.length > 0 && (
+                    <div className="mb-10">
+                        <div className="flex items-center gap-2 mb-4 p-4 bg-orange-50 border border-orange-100 rounded-lg text-orange-800">
+                            <AlertTriangle size={20} />
+                            <span className="font-semibold">Pending Approvals ({pendingMembers.length})</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {pendingMembers.map((member) => (
+                                <div key={member.id} className="bg-white p-6 rounded-xl shadow-sm border-2 border-orange-100 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 bg-orange-100 text-orange-800 text-xs font-bold px-3 py-1 rounded-bl-lg">PENDING</div>
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-lg">
+                                            {member.name[0]}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-gray-900">{member.name}</h3>
+                                            <p className="text-sm text-gray-500">{member.email}</p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2 mb-6">
+                                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                                            <Briefcase size={14} /> Requested Role: <span className="font-medium">{member.role}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleApprove(member.id)}
+                                            className="flex-1 btn bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2 py-2 rounded-lg"
+                                        >
+                                            <CheckCircle size={16} /> Approve
+                                        </button>
+                                        {/* <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200">
+                                            <XCircle size={18} />
+                                        </button> */}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {pendingMembers.length > 0 && <h2 className="text-xl font-bold text-gray-800 mb-4">Active Team</h2>}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {members.map((member) => (
@@ -69,7 +130,7 @@ export default function Team() {
                                 </div>
                                 <div className="flex items-center gap-3 text-sm text-gray-600">
                                     <Phone size={16} className="text-gray-400" />
-                                    <span>+1 (555) 000-0000</span>
+                                    <span>{member.phone || "No phone number"}</span>
                                 </div>
                             </div>
 
@@ -90,8 +151,11 @@ export default function Team() {
                             </div>
 
                             <div className="mt-6 flex gap-2">
-                                <button className="flex-1 py-2.5 text-sm font-semibold text-primary bg-primary/5 rounded-lg hover:bg-primary/10 transition-colors border border-transparent hover:border-primary/20">
-                                    View Profile
+                                <button
+                                    onClick={() => setEditingMember(member)}
+                                    className="flex-1 py-2.5 text-sm font-semibold text-primary bg-primary/5 rounded-lg hover:bg-primary/10 transition-colors border border-transparent hover:border-primary/20 flex items-center justify-center gap-2"
+                                >
+                                    <Edit2 size={16} /> Edit Profile
                                 </button>
                                 <button className="p-2.5 text-gray-400 hover:text-primary bg-gray-50 rounded-lg hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/20">
                                     <Mail size={18} />
@@ -109,6 +173,14 @@ export default function Team() {
                         </div>
                     )}
                 </div>
+
+                {editingMember && (
+                    <TeamMemberModal
+                        member={editingMember}
+                        onClose={() => setEditingMember(null)}
+                        onSave={fetchUsers}
+                    />
+                )}
             </div>
         </PageTransition>
     );

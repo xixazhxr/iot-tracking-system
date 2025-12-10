@@ -12,6 +12,9 @@ def login():
     user = User.query.filter_by(email=data["email"]).first()
     if not user or not check_password_hash(user.password, data["password"]):
         return {"error": "Invalid credentials"}, 401
+    
+    if not user.is_approved:
+        return {"error": "Your account is pending approval from an administrator"}, 403
 
     token = generate_token(user.id)
     return {"token": token, "user": {"name": user.name, "role": user.role}}
@@ -23,7 +26,8 @@ def register():
         return {"error": "User already exists"}, 400
     
     hashed_password = generate_password_hash(data["password"])
-    user = User(name=data["name"], email=data["email"], password=hashed_password, role=data.get("role", "user"))
+    # Explicitly set is_approved to False (though default is False)
+    user = User(name=data["name"], email=data["email"], password=hashed_password, role=data.get("role", "user"), is_approved=False)
     db.session.add(user)
     db.session.commit()
     return {"message": "User created successfully"}

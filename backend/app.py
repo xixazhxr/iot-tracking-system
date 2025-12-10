@@ -7,12 +7,15 @@ from controllers.task_controller import task_bp
 from controllers.progress_controller import progress_bp
 from config import Config
 
+from flask_migrate import Migrate
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
     CORS(app)
     db.init_app(app)
+    Migrate(app, db)
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(project_bp, url_prefix="/api/projects")
@@ -41,6 +44,12 @@ def create_app():
     def home():
         return {"status": "IoT Tracking Backend Running"}
     
+    from utils.errors import AppError
+
+    @app.errorhandler(AppError)
+    def handle_app_error(e):
+        return {"error": e.message, "type": e.__class__.__name__, "details": e.errors}, e.status_code
+
     @app.errorhandler(Exception)
     def handle_exception(e):
         return {"error": str(e), "type": type(e).__name__}, 500

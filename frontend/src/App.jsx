@@ -8,24 +8,30 @@ import Tasks from "./pages/Tasks";
 import Issues from "./pages/Issues";
 import Team from "./pages/Team";
 import Layout from "./components/Layout";
+import { AuthProvider } from "./context/AuthContext";
+import { TaskProvider } from "./context/TaskContext";
 
 function App() {
     return (
-        <BrowserRouter>
-            <Toaster position="top-right" reverseOrder={false} />
-            <Routes>
-                <Route path="/" element={<Login />} />
-                <Route element={<Layout />}>
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/projects" element={<Projects />} />
-                    <Route path="/projects/:id" element={<ProjectDetail />} />
-                    <Route path="/tasks" element={<Tasks />} />
-                    <Route path="/issues" element={<Issues />} />
-                    <Route path="/team" element={<Team />} />
-                </Route>
-                <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-        </BrowserRouter>
+        <AuthProvider>
+            <TaskProvider>
+                <BrowserRouter>
+                    <Toaster position="top-right" reverseOrder={false} />
+                    <Routes>
+                        <Route path="/" element={<Login />} />
+                        <Route element={<Layout />}>
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/projects" element={<Projects />} />
+                            <Route path="/projects/:id" element={<ProjectDetail />} />
+                            <Route path="/tasks" element={<Tasks />} />
+                            <Route path="/issues" element={<Issues />} />
+                            <Route path="/team" element={<Team />} />
+                        </Route>
+                        <Route path="*" element={<Navigate to="/" />} />
+                    </Routes>
+                </BrowserRouter>
+            </TaskProvider>
+        </AuthProvider>
     );
 }
 

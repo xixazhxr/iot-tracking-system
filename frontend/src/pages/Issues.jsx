@@ -2,25 +2,20 @@ import { useState, useEffect } from "react";
 import api from "../api/axios";
 import { toast } from "react-hot-toast";
 import PageTransition from "../components/PageTransition";
-import { AlertCircle, Filter, Search, Plus, Bug, CheckCircle, XCircle, Clock } from "lucide-react";
+import IssueModal from "../components/IssueModal";
+import { AlertCircle, Filter, Search, Plus, Bug, CheckCircle, XCircle, Clock, MoreVertical, Edit2, Trash2 } from "lucide-react";
 
 export default function Issues() {
     const [issues, setIssues] = useState([]);
     const [filter, setFilter] = useState("All");
     const [showModal, setShowModal] = useState(false);
     const [projects, setProjects] = useState([]);
-    const [formData, setFormData] = useState({
-        title: "",
-        project_id: "",
-        severity: "Medium",
-        status: "Open",
-        assigned_to: "",
-        description: ""
-    });
+    const [activeMenuId, setActiveMenuId] = useState(null);
+    const [editingIssue, setEditingIssue] = useState(null);
+    // formData state removed as it's handled in IssueModal
 
     useEffect(() => {
         fetchIssues();
-        fetchProjects();
     }, [filter]);
 
     const fetchIssues = async () => {
@@ -32,31 +27,41 @@ export default function Issues() {
         }
     };
 
-    const fetchProjects = async () => {
-        const res = await api.get("/projects/");
-        setProjects(res.data.projects);
-    };
+    // fetchProjects is handled inside IssueModal now, but we might want to keep it if we used it elsewhere?
+    // Actually IssueModal fetches its own projects. Issues.jsx doesn't use 'projects' state for anything else.
+    // So we can remove fetchProjects and projects state if unused.
+    // Wait, I left 'projects' in the useState above? 
+    // Let's remove fetchProjects and 'projects' state usage.
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!formData.project_id) {
-            toast.error("Please select a project");
-            return;
-        }
+    // handleSubmit removed
 
+    const handleStatusUpdate = async (id, status) => {
         try {
-            await api.post("/issues/", {
-                ...formData,
-                project_id: parseInt(formData.project_id)
-            });
-            toast.success("Issue reported successfully");
-            setShowModal(false);
-            setFormData({ title: "", project_id: "", severity: "Medium", status: "Open", assigned_to: "", description: "" });
+            await api.put(`/issues/${id}`, { status });
+            toast.success(`Issue marked as ${status}`);
             fetchIssues();
         } catch (err) {
-            console.error("Issue report error:", err);
-            toast.error(err.response?.data?.error || "Failed to report issue");
+            console.error("Failed to update status", err);
+            toast.error("Failed to update status");
         }
+    };
+
+    const handleDelete = async (id) => {
+        if (!confirm("Are you sure you want to delete this issue?")) return;
+        try {
+            await api.delete(`/issues/${id}`);
+            toast.success("Issue deleted");
+            fetchIssues();
+        } catch (err) {
+            console.error("Failed to delete issue", err);
+            toast.error("Failed to delete issue");
+        }
+    };
+
+    const openEditModal = (issue) => {
+        setEditingIssue(issue);
+        setShowModal(true);
+        setActiveMenuId(null);
     };
 
     const getSeverityColor = (s) => {
@@ -85,7 +90,10 @@ export default function Issues() {
                             />
                         </div>
                         <button
-                            onClick={() => setShowModal(true)}
+                            onClick={() => {
+                                setEditingIssue(null);
+                                setShowModal(true);
+                            }}
                             className="btn bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2"
                         >
                             <Plus size={18} /> Report Issue
@@ -139,6 +147,50 @@ export default function Issues() {
                                     }`}>
                                     {issue.status}
                                 </span>
+
+                            </div>
+
+                            <div className="relative ml-4">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === issue.id ? null : issue.id); }}
+                                    className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                                >
+                                    <MoreVertical size={18} />
+                                </button>
+
+                                {activeMenuId === issue.id && (
+                                    <div className="absolute right-0 top-10 w-32 bg-white rounded-lg shadow-xl border border-gray-100 z-10 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleStatusUpdate(issue.id, 'Closed');
+                                                setActiveMenuId(null);
+                                            }}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
+                                        >
+                                            <CheckCircle size={14} /> Finish
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); openEditModal(issue); }}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                        >
+                                            <Edit2 size={14} /> Edit
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDelete(issue.id);
+                                                setActiveMenuId(null);
+                                            }}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                        >
+                                            <Trash2 size={14} /> Delete
+                                        </button>
+                                    </div>
+                                )}
+                                {activeMenuId === issue.id && (
+                                    <div className="fixed inset-0 z-0 cursor-default" onClick={() => setActiveMenuId(null)}></div>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -155,79 +207,13 @@ export default function Issues() {
 
                 {/* Modal */}
                 {showModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 backdrop-blur-sm">
-                        <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-bold text-gray-900">Report Issue</h2>
-                                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                                    <XCircle size={24} />
-                                </button>
-                            </div>
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Issue Title</label>
-                                    <input
-                                        className="input w-full"
-                                        placeholder="e.g. Login failed"
-                                        value={formData.title}
-                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
-                                    <select
-                                        className="input w-full"
-                                        value={formData.project_id}
-                                        onChange={e => setFormData({ ...formData, project_id: e.target.value })}
-                                        required
-                                    >
-                                        <option value="">Select Project</option>
-                                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
-                                        <select
-                                            className="input w-full"
-                                            value={formData.severity}
-                                            onChange={e => setFormData({ ...formData, severity: e.target.value })}
-                                        >
-                                            <option>Low</option>
-                                            <option>Medium</option>
-                                            <option>High</option>
-                                            <option>Critical</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
-                                        <input
-                                            className="input w-full"
-                                            placeholder="Name"
-                                            value={formData.assigned_to}
-                                            onChange={e => setFormData({ ...formData, assigned_to: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                    <textarea
-                                        className="input w-full min-h-[100px]"
-                                        placeholder="Describe the issue in detail..."
-                                        value={formData.description}
-                                        onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                    />
-                                </div>
-                                <div className="flex justify-end gap-3 mt-6">
-                                    <button type="button" onClick={() => setShowModal(false)} className="btn bg-white border border-gray-200 text-gray-700 hover:bg-gray-50">Cancel</button>
-                                    <button type="submit" className="btn bg-primary hover:bg-primary-dark text-white">Report Issue</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+                    <IssueModal
+                        issue={editingIssue}
+                        onClose={() => { setShowModal(false); setEditingIssue(null); }}
+                        onSave={fetchIssues}
+                    />
                 )}
             </div>
-        </PageTransition>
+        </PageTransition >
     );
 }

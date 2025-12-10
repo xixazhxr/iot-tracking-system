@@ -9,6 +9,10 @@ services:
     environment:
       - FLASK_APP=app.py
       - FLASK_ENV=development
+      - MYSQL_HOST=mariadb
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=password
+      - MYSQL_DB=iot_tracking
     volumes:
       - ./backend:/app
 
@@ -19,7 +23,7 @@ services:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: iot_tracking
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - ./dbdata:/var/lib/mysql
       - ./database.sql:/docker-entrypoint-initdb.d/init.sql

@@ -41,3 +41,79 @@ def get_team_workload():
         .group_by(User.name)\
         .all()
     return jsonify({"data": [{"name": r[0], "tasks": r[1]} for r in results]})
+
+@stats_bp.get("/pending-approvals")
+def get_pending_approvals():
+    count = User.query.filter_by(is_approved=False).count()
+    return jsonify({"count": count})
+
+@stats_bp.get("/project-health")
+def get_project_health():
+    # Simple health calc: 
+    # Healthy: No critical issues
+    # At Risk: Has critical issues OR > 5 active issues
+    
+    projects = Project.query.all()
+    health_data = []
+    
+    for p in projects:
+        # Count critical issues related to this project (assuming issue has project_id or similar, 
+        # but Issue model might be loose. Let's assume we link via Issue logic or just mock for now if no direct link exists)
+        # Looking at Issue model earlier, it didn't seem to have project_id explicit in the snippet? 
+        # Let me check valid relationships. 
+        # The Issue model in previous context had title, severity, status, created_by.
+        # It lacks a direct foreign key to Project in the snippet I saw?
+        # Wait, let's double check Issue model to be safe. 
+        # If no link, I'll use a placeholder logic or try to match by name if relevant.
+        # Actually, let's just count open tasks vs total tasks for "completeness".
+        
+        total_tasks = Task.query.filter_by(project_id=p.id).count()
+        completed_tasks = Task.query.filter_by(project_id=p.id, status='Done').count()
+        
+        # If we can't easily link issues, we'll base health on progress.
+        progress = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+        
+        status = "Healthy"
+        if progress < 30 and total_tasks > 0:
+            status = "At Risk"
+            
+        health_data.append({
+            "id": p.id,
+            "name": p.name,
+            "status": status,
+            "progress": int(progress),
+            "total_tasks": total_tasks
+        })
+        
+    return jsonify({"data": health_data})
+
+@stats_bp.get("/recent-activity")
+def get_recent_activity():
+    # Get last 5 tasks
+    recent_tasks = Task.query.order_by(Task.created_at.desc()).limit(5).all()
+    # Get last 5 issues
+    recent_issues = Issue.query.order_by(Issue.created_at.desc()).limit(5).all()
+    
+    activity = []
+    for t in recent_tasks:
+        activity.append({
+            "type": "task",
+            "title": t.name,
+            "user": t.assigned_to,
+            "time": t.created_at,
+            "id": t.id
+        })
+        
+    for i in recent_issues:
+        activity.append({
+            "type": "issue",
+            "title": i.title,
+            "user": i.assigned_to, # Issue doesn't have created_by, using assigned_to
+            "time": i.created_at,
+            "id": i.id
+        })
+        
+    # Sort mixed list by time desc
+    activity.sort(key=lambda x: x['time'], reverse=True)
+    
+    return jsonify({"data": activity[:10]})

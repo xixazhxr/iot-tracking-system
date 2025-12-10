@@ -1,8 +1,25 @@
 import { useNavigate } from "react-router-dom";
-import { Building2, Copy, Calendar, Users } from "lucide-react";
+import { useState } from "react";
+import api from "../api/axios";
+import { toast } from "react-hot-toast";
+import { Building2, Copy, Calendar, Users, MoreVertical, CheckCircle } from "lucide-react";
 
-export default function ProjectCard({ project }) {
+export default function ProjectCard({ project, onUpdate }) {
     const navigate = useNavigate();
+    const [showMenu, setShowMenu] = useState(false);
+
+    const handleFinish = async (e) => {
+        e.stopPropagation();
+        try {
+            await api.put(`/projects/${project.id}`, { stage: 'Completed', status: 'Completed' });
+            toast.success("Project marked as completed");
+            setShowMenu(false);
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            console.error("Failed to complete project", error);
+            toast.error("Failed to complete project");
+        }
+    };
 
     return (
         <div
@@ -33,16 +50,41 @@ export default function ProjectCard({ project }) {
                         }`}>
                         {project.priority || 'Medium'}
                     </div>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            alert("Duplicate functionality coming soon");
-                        }}
-                        className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-primary transition-colors"
-                        title="Duplicate Project"
-                    >
-                        <Copy size={16} />
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowMenu(!showMenu);
+                            }}
+                            className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-primary transition-colors"
+                        >
+                            <MoreVertical size={18} />
+                        </button>
+
+                        {showMenu && (
+                            <div className="absolute right-0 bottom-8 w-40 bg-white rounded-lg shadow-xl border border-gray-100 z-10 overflow-hidden animate-in fade-in zoom-in duration-200 origin-bottom-right">
+                                <button
+                                    onClick={handleFinish}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"
+                                >
+                                    <CheckCircle size={14} /> Finish
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        alert("Duplicate functionality coming soon");
+                                        setShowMenu(false);
+                                    }}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                    <Copy size={14} /> Duplicate
+                                </button>
+                            </div>
+                        )}
+                        {showMenu && (
+                            <div className="fixed inset-0 z-0 cursor-default" onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}></div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

@@ -3,6 +3,130 @@ from models.project import Project
 from models.user import User
 from models.attachment import Attachment
 from utils.db import db
+from utils.errors import ValidationError, NotFoundError
+
+project_bp = Blueprint("projects", __name__)
+
+@project_bp.get("/")
+def get_projects():
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    search = request.args.get('search', '')
+    
+    query = Project.query
+    if search:
+        query = query.filter(Project.name.ilike(f'%{search}%'))
+        
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    projects = pagination.items
+    
+    return {
+        "projects": [p.to_dict() for p in projects],
+        "pagination": {
+            "total": pagination.total,
+            "pages": pagination.pages,
+            "current_page": page,
+            "per_page": per_page
+        }
+    }
+
+@project_bp.post("/")
+def create_project():
+    data = request.json
+    if not data or 'name' not in data:
+        raise ValidationError("Project name is required")
+        
+    p = Project(**data)
+    db.session.add(p)
+    db.session.commit()
+    return {"message": "Project created", "id": p.id}
+
+@project_bp.get("/<int:id>")
+def get_project(id):
+    p = Project.query.get(id)
+    if not p:
+        raise NotFoundError(f"Project with id {id} not found")
+    return p.to_dict()
+
+@project_bp.get("/users/search")
+def search_users():
+    query = request.args.get('q', '')
+    if not query:
+        return {"users": []}
+    users = User.query.filter(User.name.ilike(f'%{query}%') | User.email.ilike(f'%{query}%')).limit(10).all()
+    return {"users": [{"id": u.id, "name": u.name, "email": u.email} for u in users]}
+
+@project_bp.put("/<int:id>")
+def update_project(id):
+    p = Project.query.get(id)
+    if not p:
+        raise NotFoundError(f"Project with id {id} not found")
+
+    data = request.json
+    for key, value in data.items():
+        if key not in ['id', 'members', 'attachments', '_sa_instance_state'] and hasattr(p, key):
+            setattr(p, key, value)
+    
+    db.session.commit()
+    return {"message": "Project updated"}
+
+@project_bp.delete("/<int:id>")
+def delete_project(id):
+    p = Project.query.get(id)
+    if not p:
+        raise NotFoundError(f"Project with id {id} not found")
+        
+    db.session.delete(p)
+    db.session.commit()
+    return {"message": "Project deleted"}
+
+@project_bp.post("/<int:id>/members")
+def add_member(id):
+    p = Project.query.get(id)
+    if not p:
+        raise NotFoundError(f"Project with id {id} not found")
+
+    data = request.json
+    user_id = data.get('user_id')
+    if not user_id:
+        raise ValidationError("User ID is required")
+        
+    user = User.query.get(user_id)
+    if not user:
+        raise NotFoundError(f"User with id {user_id} not found")
+
+    if user not in p.members:
+        p.members.append(user)
+        db.session.commit()
+    return {"message": "Member added"}
+
+@project_bp.delete("/<int:id>/members/<int:user_id>")
+def remove_member(id, user_id):
+    p = Project.query.get(id)
+    if not p:
+        raise NotFoundError(f"Project with id {id} not found")
+        
+    user = User.query.get(user_id)
+    if not user:
+        raise NotFoundError(f"User with id {user_id} not found")
+        
+    if user in p.members:
+        p.members.remove(user)
+        db.session.commit()
+    return {"message": "Member removed"}
+
+@project_bp.post("/<int:id>/documents")
+def upload_document(id):
+    # This is a placeholder for actual file upload logic
+    # In a real app, we would handle file storage here
+    data = request.json
+    if 'name' not in data or 'url' not in data:
+        raise ValidationError("Name and URL are required")
+        
+    att = Attachment(project_id=id, file_name=data['name'], file_url=data['url'])
+    db.session.add(att)
+    db.session.commit()
+    return {"message": "Document uploaded"}
 
 project_bp = Blueprint("projects", __name__)
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import TaskModal from "../components/TaskModal";
 import ProjectModal from "../components/ProjectModal";
+import IssueModal from "../components/IssueModal";
 import PageTransition from "../components/PageTransition";
 import { toast } from "react-hot-toast";
 import GanttChart from "../components/GanttChart";
@@ -10,7 +11,7 @@ import HardwareSection from "../components/tracking/HardwareSection";
 import FirmwareSection from "../components/tracking/FirmwareSection";
 import TestingSection from "../components/tracking/TestingSection";
 import DeploymentSection from "../components/tracking/DeploymentSection";
-import { Calendar, Users, FileText, AlertCircle, Activity, Layers, Trash2, Edit2, Plus, Upload, Download, DollarSign } from "lucide-react";
+import { Calendar, Users, FileText, AlertCircle, Activity, Layers, Trash2, Edit2, Plus, Upload, Download, DollarSign, Bug, CheckCircle, MoreVertical } from "lucide-react";
 
 export default function ProjectDetail() {
     const { id } = useParams();
@@ -23,6 +24,12 @@ export default function ProjectDetail() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showCostModal, setShowCostModal] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
+
+    // Issue State
+    const [issues, setIssues] = useState([]);
+    const [showIssueModal, setShowIssueModal] = useState(false);
+    const [editingIssue, setEditingIssue] = useState(null);
+    const [activeIssueMenu, setActiveIssueMenu] = useState(null);
 
     // Cost State
     const [costData, setCostData] = useState({
@@ -57,6 +64,7 @@ export default function ProjectDetail() {
         });
         api.get(`/tasks/project/${id}`).then(res => setTasks(res.data.tasks));
         api.get(`/progress/project/${id}`).then(res => setProgress(res.data));
+        api.get(`/issues/?project_id=${id}`).then(res => setIssues(res.data.issues));
     };
 
     useEffect(() => {
@@ -331,7 +339,86 @@ export default function ProjectDetail() {
                                     </button>
                                 </div>
                             </div>
-                            {tasks.length === 0 && <p className="text-gray-500 text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">No tasks found.</p>}
+
+                            {tasks.length > 0 ? (
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-gray-50 border-b border-gray-100">
+                                        <tr>
+                                            <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Task Name</th>
+                                            <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Status</th>
+                                            <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Priority</th>
+                                            <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Assigned To</th>
+                                            <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider">Deadline</th>
+                                            <th className="p-4 font-semibold text-gray-600 text-sm uppercase tracking-wider text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {tasks.map(task => (
+                                            <tr key={task.id} className="hover:bg-gray-50 transition-colors group">
+                                                <td className="p-4 font-medium text-gray-900">{task.name}</td>
+                                                <td className="p-4">
+                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${task.status === 'Done' ? 'bg-green-100 text-green-700' :
+                                                        task.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
+                                                            task.status === 'Overdue' ? 'bg-red-100 text-red-700' :
+                                                                'bg-gray-100 text-gray-700'
+                                                        }`}>
+                                                        {task.status}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-1.5">
+                                                        {task.priority === 'High' && <Activity size={14} className="text-red-500" />}
+                                                        <span className={`text-sm font-medium ${task.priority === 'High' ? 'text-red-600' :
+                                                            task.priority === 'Medium' ? 'text-yellow-600' : 'text-green-600'
+                                                            }`}>
+                                                            {task.priority}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-sm text-gray-600">
+                                                    {task.assigned_to ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                                                                {task.assigned_to[0]}
+                                                            </div>
+                                                            {task.assigned_to}
+                                                        </div>
+                                                    ) : <span className="text-gray-400 italic">Unassigned</span>}
+                                                </td>
+                                                <td className="p-4 text-sm text-gray-600">
+                                                    {task.deadline || <span className="text-gray-400">-</span>}
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button
+                                                            onClick={() => { setEditingTask(task); setShowTaskModal(true); }}
+                                                            className="p-1.5 text-gray-400 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors"
+                                                            title="Edit Task"
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (confirm("Delete this task?")) {
+                                                                    await api.delete(`/tasks/${task.id}`);
+                                                                    toast.success("Task deleted");
+                                                                    fetchData();
+                                                                }
+                                                            }}
+                                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Delete Task"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <p className="text-gray-500 text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">No tasks found.</p>
+                            )}
                         </div>
                     )}
 
@@ -485,13 +572,114 @@ export default function ProjectDetail() {
                     )}
 
                     {activeTab === "issues" && (
-                        <div className="text-center py-20">
-                            <div className="w-16 h-16 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <AlertCircle size={32} />
+                        <div>
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-lg font-bold text-gray-900">Project Issues ({issues.length})</h3>
+                                <button
+                                    onClick={() => {
+                                        setEditingIssue(null);
+                                        setShowIssueModal(true);
+                                    }}
+                                    className="btn bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+                                >
+                                    <Plus size={16} /> Report Issue
+                                </button>
                             </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-2">Issue Tracking</h3>
-                            <p className="text-gray-500 mb-6 max-w-md mx-auto">Track bugs and issues directly within your project. This feature is currently under development.</p>
-                            <button className="btn bg-gray-100 text-gray-600 hover:bg-gray-200 px-6 py-2 rounded-lg font-medium">Report Issue</button>
+
+                            <div className="grid gap-3">
+                                {issues.map((issue) => (
+                                    <div key={issue.id} className="p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all duration-200 flex items-center justify-between group">
+                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                            <div className={`w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center ${issue.severity === "Critical" ? "bg-red-50 text-red-500" :
+                                                    issue.severity === "High" ? "bg-orange-50 text-orange-500" :
+                                                        "bg-blue-50 text-blue-500"
+                                                }`}>
+                                                <Bug size={20} />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <h4 className="font-bold text-gray-900 text-sm truncate pr-4">{issue.title}</h4>
+                                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                                    <span className="truncate">Assigned to: <span className="font-medium text-gray-700">{issue.assigned_to || "Unassigned"}</span></span>
+                                                    <span>•</span>
+                                                    <span className="whitespace-nowrap">{new Date(issue.created_at).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 flex-shrink-0">
+                                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${issue.severity === 'Critical' ? 'bg-red-100 text-red-700 border-red-200' :
+                                                    issue.severity === 'High' ? 'bg-orange-100 text-orange-700 border-orange-200' :
+                                                        "bg-blue-100 text-blue-700 border-blue-200"
+                                                }`}>
+                                                {issue.severity}
+                                            </span>
+                                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${issue.status === "Open" ? "bg-green-50 text-green-700 border-green-100" :
+                                                    issue.status === "Closed" ? "bg-gray-100 text-gray-600 border-gray-200" :
+                                                        "bg-yellow-50 text-yellow-700 border-yellow-100"
+                                                }`}>
+                                                {issue.status}
+                                            </span>
+
+                                            <div className="relative ml-2">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setActiveIssueMenu(activeIssueMenu === issue.id ? null : issue.id); }}
+                                                    className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                                                >
+                                                    <MoreVertical size={16} />
+                                                </button>
+
+                                                {activeIssueMenu === issue.id && (
+                                                    <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-xl border border-gray-100 z-20 overflow-hidden animate-in fade-in zoom-in duration-200">
+                                                        <button
+                                                            onClick={async () => {
+                                                                await api.put(`/issues/${issue.id}`, { status: 'Closed' });
+                                                                toast.success("Issue closed");
+                                                                fetchData();
+                                                                setActiveIssueMenu(null);
+                                                            }}
+                                                            className="w-full text-left px-4 py-2.5 text-xs text-green-600 hover:bg-green-50 flex items-center gap-2"
+                                                        >
+                                                            <CheckCircle size={14} /> Finish
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingIssue(issue);
+                                                                setShowIssueModal(true);
+                                                                setActiveIssueMenu(null);
+                                                            }}
+                                                            className="w-full text-left px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                                        >
+                                                            <Edit2 size={14} /> Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (confirm('Delete issue?')) {
+                                                                    await api.delete(`/issues/${issue.id}`);
+                                                                    toast.success("Issue deleted");
+                                                                    fetchData();
+                                                                }
+                                                                setActiveIssueMenu(null);
+                                                            }}
+                                                            className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                                        >
+                                                            <Trash2 size={14} /> Delete
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                {activeIssueMenu === issue.id && (
+                                                    <div className="fixed inset-0 z-10 cursor-default" onClick={() => setActiveIssueMenu(null)}></div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {issues.length === 0 && (
+                                    <div className="p-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                        <Bug size={32} className="mx-auto text-gray-400 mb-2 opacity-50" />
+                                        <p className="text-gray-500">No issues reported for this project.</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -575,6 +763,14 @@ export default function ProjectDetail() {
                     <ProjectModal
                         initialData={project}
                         onClose={() => setShowEditModal(false)}
+                        onSave={fetchData}
+                    />
+                )}
+                {showIssueModal && (
+                    <IssueModal
+                        projectId={id}
+                        issue={editingIssue}
+                        onClose={() => { setShowIssueModal(false); setEditingIssue(null); }}
                         onSave={fetchData}
                     />
                 )}

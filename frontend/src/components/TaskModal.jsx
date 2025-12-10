@@ -16,7 +16,20 @@ export default function TaskModal({ projectId, onClose, onSave, initialData = nu
 
     useEffect(() => {
         if (initialData) {
-            setFormData(initialData);
+            // Ensure deadline is YYYY-MM-DD for date input
+            let formattedDeadline = "";
+            if (initialData.deadline) {
+                // Handle both ISO strings and "Wed, 10 Dec..." formats by creating a Date object
+                const dateObj = new Date(initialData.deadline);
+                if (!isNaN(dateObj)) {
+                    formattedDeadline = dateObj.toISOString().split('T')[0];
+                }
+            }
+
+            setFormData({
+                ...initialData,
+                deadline: formattedDeadline
+            });
         }
     }, [initialData]);
 
@@ -29,8 +42,11 @@ export default function TaskModal({ projectId, onClose, onSave, initialData = nu
         console.log("Submitting task:", formData);
 
         // Prepare payload
+        // Create a copy of formData to avoid mutating state
+        const { created_at, updated_at, id, ...rest } = formData;
+
         const payload = {
-            ...formData,
+            ...rest,
             project_id: formData.project_id ? parseInt(formData.project_id) : null,
             parent_id: formData.parent_id ? parseInt(formData.parent_id) : null,
             deadline: formData.deadline || null

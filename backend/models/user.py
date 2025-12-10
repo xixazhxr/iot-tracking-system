@@ -7,3 +7,5 @@ class User(db.Model):
     email = db.Column(db.String(200), unique=True)
     password = db.Column(db.String(200))
     role = db.Column(db.String(50))
+    phone = db.Column(db.String(50))
+    is_approved = db.Column(db.Boolean, default=False)

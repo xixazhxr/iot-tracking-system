@@ -11,6 +11,8 @@ class Task(db.Model):
     priority = db.Column(db.String(50), default='Medium')
     deadline = db.Column(db.Date)
     parent_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
 
     subtasks = db.relationship('Task', backref=db.backref('parent', remote_side=[id]), lazy=True)
     attachments = db.relationship('Attachment', backref='task', lazy=True)
